@@ -1,7 +1,7 @@
-# 利用yaml的锚点作为变量
-product_version_define: &product_version_define "2"
-product_version_reg: &product_version_reg aaa22
-
+define_items:
+    - item:
+        key: product_version_define
+        value: "2"
 command:
     - copy:
         source: src/abc/*
@@ -11,7 +11,7 @@ command:
     - replace:
         source: "test_src.txt"
         regex: "Hello"
-        replacement: *product_version_define
+        replacement: "Hello, {product_version_define}"
     - copy:
         source: "src/efg/*"
         destination: "target/efg"
