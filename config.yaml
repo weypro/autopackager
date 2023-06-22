@@ -1,0 +1,21 @@
+# 利用yaml的锚点作为变量
+product_version_define: &product_version_define "2"
+product_version_reg: &product_version_reg aaa22
+
+command:
+    - copy:
+        source: src/abc/*
+        destination: target/
+        gitignore_path: .gitignore
+        use_gitignore: true
+    - replace:
+        source: "test_src.txt"
+        regex: "Hello"
+        replacement: *product_version_define
+    - copy:
+        source: "src/efg/*"
+        destination: "target/efg"
+        gitignore_path: ".gitignore"
+        use_gitignore: true
+    - run:
+        command: "echo 'Build complete!'"
