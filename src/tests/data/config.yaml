@@ -12,9 +12,9 @@ command:
   - type: Replace
     source: "test_src.txt"
     regex: "Hello"
-    replacement: "Hello, {product_version_define}"
+    replacement: "Hello, 2"
   - type: Replace
-    source: "{file_to_replace_root_path}src/tests/data/test_src.txt"
+    source: "E:/projects/rust/autopackager/src/tests/data/test_src.txt"
     regex: "test"
     replacement: "test, path, "
   - type: Copy
@@ -24,4 +24,3 @@ command:
     use_gitignore: true
   - type: Run
     command: "echo 'Build complete!'"
-    

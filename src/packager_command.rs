@@ -5,8 +5,9 @@ use serde_yaml;
 use std::fs;
 use std::process::Command as SysCommand;
 
-use serde::{Serialize, Deserialize};
-
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
+use tracing::{error, info};
 
 // 定义一个结构体，表示整个yaml对象
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -14,7 +15,6 @@ pub struct Config {
     pub define_items: Vec<DefineItem>,
     pub command: Vec<Command>,
 }
-
 
 // 定义一个结构体，表示定义项
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -55,30 +55,44 @@ pub struct Run {
     pub command: String,
 }
 
-
 // 定义一个函数来执行copy命令
 pub fn execute_copy(copy: &Copy) -> Result<()> {
     // 输出提示
-    println!("Copying files from {} to {}", copy.source, copy.destination);
-    println!("Using gitignore file at {}", copy.gitignore_path);
-    println!("Using gitignore rules? {}", copy.use_gitignore);
-    // 如果没有错误，就返回Ok(())
+    info!(
+        "* Copying files from {} to {}",
+        copy.source, copy.destination
+    );
+    info!("- Using gitignore file at {}", copy.gitignore_path);
+    info!("- Using gitignore rules? {}", copy.use_gitignore);
+
     Ok(())
 }
 
 // 定义一个函数来执行replace命令
 pub fn execute_replace(replace: &Replace) -> Result<()> {
     // 输出提示
-    println!(
-        "Replacing {} with {} in {}",
+    info!(
+        "* Replacing \"{}\" with \"{}\" in {}",
         replace.regex, replace.replacement, replace.source
     );
 
     // 创建一个正则表达式对象
     let regex = Regex::new(&replace.regex)?;
 
+    // 验证源路径glob是否有效
+    let path_list = glob(&replace.source)?;
+
+    // 把迭代器转换成Vec
+    let path_vec: Vec<_> = path_list.collect();
+    // 输出长度
+    // println!("路径列表的长度是: {}", path_vec.len());
+
+    if path_vec.len() == 0 {
+        return Err(anyhow!("Invalid path. No files found."));
+    }
+
     // 遍历匹配源路径的所有文件
-    for entry in glob(&replace.source)? {
+    for entry in path_vec {
         match entry {
             Ok(path) => {
                 if !path.is_file() {
@@ -93,7 +107,9 @@ pub fn execute_replace(replace: &Replace) -> Result<()> {
                 // 写入新的文件内容
                 fs::write(&path, replaced_content)?;
             }
-            Err(e) => return Err(anyhow!("Failed to read glob pattern. {}", e.to_string())),
+            Err(e) => {
+                return Err(anyhow!("Failed to read glob pattern. {}", e.to_string()));
+            }
         }
     }
 
@@ -103,7 +119,7 @@ pub fn execute_replace(replace: &Replace) -> Result<()> {
 // 定义一个函数来执行run命令
 pub fn execute_run(run: &Run) -> Result<()> {
     // 输出提示
-    println!("Running command: {}", run.command);
+    info!("* Running command: {}", run.command);
 
     // 根据操作系统选择不同的命令
     let output = if cfg!(target_os = "windows") {
@@ -122,10 +138,7 @@ pub fn execute_run(run: &Run) -> Result<()> {
     // 检查命令是否成功
     if output.status.success() {
         // 输出标准输出和标准错误
-        println!(
-            "Running command result: {}",
-            String::from_utf8_lossy(&output.stdout)
-        );
+        info!("- result: {}", String::from_utf8_lossy(&output.stdout));
         //println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
         Ok(())
     } else {
@@ -134,48 +147,61 @@ pub fn execute_run(run: &Run) -> Result<()> {
     }
 }
 
-
 // 定义一个函数来执行命令列表
-pub fn execute_commands(commands: &[Command]) -> Result<()> {
-    // 遍历命令列表中的每个命令
-    for command in commands {
-        // 使用match表达式来匹配命令的类型，并解构出关联数据
-        match command {
-            Command::Copy(copy) => execute_copy(copy)?,
-            Command::Replace(replace) => {
-                execute_replace(replace)?
+pub fn execute_commands(commands: &[Command]) -> Result<(), Vec<anyhow::Error>> {
+    // 使用partition_map方法来将Result分割成两个集合
+    let (_, errors): (Vec<_>, Vec<_>) = commands
+        .into_iter()
+        .map(|command| match command {
+            Command::Copy(copy) => execute_copy(copy),
+            Command::Replace(replace) => execute_replace(replace),
+            Command::Run(run) => execute_run(run),
+        })
+        // .partition_map(From::from);
+        .partition_map(|r| match r {
+            Ok(v) => itertools::Either::Left(v),
+            Err(v) => {
+                error!("!!! Error occurred: {}", v);
+                itertools::Either::Right(v)
             }
-            Command::Run(run) => execute_run(run)?,
-        }
+        });
+    // 检查错误集合是否为空
+    if errors.is_empty() {
+        // 如果没有错误，就返回Ok(())
+        Ok(())
+    } else {
+        // 如果有错误，就返回Err(errors)
+        Err(errors)
     }
-    // 如果没有错误，就返回Ok(())
-    Ok(())
 }
 
 // 从yaml文件中反序列化Config
-pub fn parse_commands_from_yaml(file_path: &str) -> Result<Config> {
+pub fn parse_commands_from_yaml(file_path: &str, if_use_define: bool) -> Result<Config> {
     // 从yaml文件中读取内容，并存储为一个字符串
     let mut yaml_content = fs::read_to_string(file_path)?;
-    // 使用serde_yaml库的from_str函数将yaml字符串转换为Value类型
-    let value: serde_yaml::Value = serde_yaml::from_str(&yaml_content).unwrap();
-    // 从Value中获取define_items字段，它应该是一个数组
-    if let Some(define_items) = value["define_items"].as_sequence() {
-        // 遍历define_items数组中的每个元素，它们应该是一个映射
-        for item in define_items {
-            // 从映射中获取item字段，它应该是一个映射
-            // 从item映射中获取key和value字段，它们应该是字符串
-            if let (Some(key), Some(value)) = (
-                item.get(&serde_yaml::Value::from("key")),
-                item.get(&serde_yaml::Value::from("value")),
-            ) {
-                if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
-                    // 使用format!函数将key和value拼接成"{key}"和value的形式
-                    let key = format!("{{{}}}", key);
-                    let value = value.to_string();
-                    // 使用regex::Regex::new函数创建一个正则表达式对象，用来匹配"{key}"
-                    let re = Regex::new(&regex::escape(&key)).unwrap();
-                    // 使用regex::Regex::replace_all函数将文件内容中的"{key}"替换为value
-                    yaml_content = re.replace_all(&yaml_content, &value).to_string();
+
+    if if_use_define {
+        // 使用serde_yaml库的from_str函数将yaml字符串转换为Value类型
+        let value: serde_yaml::Value = serde_yaml::from_str(&yaml_content).unwrap();
+        // 从Value中获取define_items字段，它应该是一个数组
+        if let Some(define_items) = value["define_items"].as_sequence() {
+            // 遍历define_items数组中的每个元素，它们应该是一个映射
+            for item in define_items {
+                // 从映射中获取item字段，它应该是一个映射
+                // 从item映射中获取key和value字段，它们应该是字符串
+                if let (Some(key), Some(value)) = (
+                    item.get(&serde_yaml::Value::from("key")),
+                    item.get(&serde_yaml::Value::from("value")),
+                ) {
+                    if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
+                        // 使用format!函数将key和value拼接成"{key}"和value的形式
+                        let key = format!("{{{}}}", key);
+                        let value = value.to_string();
+                        // 使用regex::Regex::new函数创建一个正则表达式对象，用来匹配"{key}"
+                        let re = Regex::new(&regex::escape(&key)).unwrap();
+                        // 使用regex::Regex::replace_all函数将文件内容中的"{key}"替换为value
+                        yaml_content = re.replace_all(&yaml_content, &value).to_string();
+                    }
                 }
             }
         }
@@ -184,9 +210,23 @@ pub fn parse_commands_from_yaml(file_path: &str) -> Result<Config> {
     deserialize_config(&yaml_content)
 }
 
-
 // 定义一个函数，用于从yaml字符串反序列化为Config对象
 pub fn deserialize_config(yaml: &str) -> Result<Config> {
     Ok(serde_yaml::from_str(yaml).unwrap())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_correct_commands_test() -> Result<()> {
+        // 从tests/config.yaml文件中解析出Config对象
+        let config = parse_commands_from_yaml("src/tests/ori_data/config.yaml", true)?;
+        let expected_config = parse_commands_from_yaml("src/tests/data/config.yaml", false)?;
+        // 使用assert_eq!宏来断言两个Config对象是否相等
+        assert_eq!(config, expected_config);
+        // 如果没有错误，就返回Ok(())
+        Ok(())
+    }
+}

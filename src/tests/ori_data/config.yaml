@@ -24,4 +24,3 @@ command:
     use_gitignore: true
   - type: Run
     command: "echo 'Build complete!'"
-    
