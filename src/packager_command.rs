@@ -1,13 +1,15 @@
 use anyhow::{anyhow, Result};
 use glob::glob;
 use regex::Regex;
-use serde_yaml;
 use std::fs;
+use std::path::Path;
 use std::process::Command as SysCommand;
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use serde_yaml;
 use tracing::{error, info};
+use ignore::WalkBuilder;
 
 // 定义一个结构体，表示整个yaml对象
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -64,6 +66,46 @@ pub fn execute_copy(copy: &Copy) -> Result<()> {
     );
     info!("- Using gitignore file at {}", copy.gitignore_path);
     info!("- Using gitignore rules? {}", copy.use_gitignore);
+
+
+    // 创建一个WalkBuilder迭代器，遍历源路径下的所有文件和目录
+    let walker = if copy.use_gitignore {
+        // 如果copy.use_gitignore为true，则添加ignore文件
+        WalkBuilder::new(&copy.source)
+        .add_custom_ignore_filename(&copy.gitignore_path).clone()
+    } else {
+        // 否则，不添加ignore文件
+        WalkBuilder::new(&copy.source)
+        .git_ignore(copy.use_gitignore.clone())
+        .ignore(copy.use_gitignore.clone())
+        .git_global(copy.use_gitignore.clone()).clone()
+    };
+
+    // 创建一个WalkBuilder迭代器，遍历源路径下的所有文件和目录，并添加ignore文件
+    for result in walker.build()
+    {
+        // 处理每个结果，如果是Ok(entry)，则获取entry的路径
+        if let Ok(entry) = result {
+            let entry_path = entry.path();
+
+            // 判断entry是否是文件，如果是，则复制文件到目标路径
+            if entry.file_type().map_or(false, |ft| ft.is_file()) {
+                // 拼接目标路径和entry的相对路径，作为复制的目标路径
+                let relative_path = entry_path.strip_prefix(&copy.source).unwrap();
+                let target_path_str = format!("{}/{}", &copy.destination, relative_path.display());
+                let target_path = Path::new(&target_path_str);
+
+                // 创建文件的父目录，如果不存在的话
+                if let Some(parent_path) = target_path.parent() {
+                    fs::create_dir_all(parent_path)?;
+                }
+                // 复制文件到目标路径
+                fs::copy(entry_path, &target_path)?;
+            }
+        } else {
+            return Err(anyhow!("ERROR: {:?}", result));
+        }
+    }
 
     Ok(())
 }
@@ -220,6 +262,7 @@ mod tests {
     use super::*;
 
     #[test]
+    // 测试yaml文件解析
     fn parse_correct_commands_test() -> Result<()> {
         // 从tests/config.yaml文件中解析出Config对象
         let config = parse_commands_from_yaml("src/tests/ori_data/config.yaml", true)?;
@@ -228,5 +271,17 @@ mod tests {
         assert_eq!(config, expected_config);
         // 如果没有错误，就返回Ok(())
         Ok(())
+    }
+
+    #[test]
+    // 测试命令执行函数
+    fn test_execute_run() {
+        // 创建一个Run结构体实例
+        let run = Run {
+            command: "echo hello".to_string(),
+        };
+
+        // 调用execute_run函数，并断言它返回Ok(())
+        assert_eq!((), execute_run(&run).unwrap());
     }
 }

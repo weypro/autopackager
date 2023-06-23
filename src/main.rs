@@ -4,7 +4,7 @@ use tracing_subscriber;
 
 mod packager_command;
 
-// 测试代码
+
 fn main() {
     tracing_subscriber::fmt::init();
     info!("starting packager...");

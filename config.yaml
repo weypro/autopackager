@@ -5,10 +5,10 @@ define_items:
     value: "E:/projects/rust/autopackager/"
 command:
   - type: Copy
-    source: src/abc/*
+    source: src/
     destination: target/
     gitignore_path: .gitignore
-    use_gitignore: true
+    use_gitignore: false
   - type: Replace
     source: "test_src.txt"
     regex: "Hello"
@@ -24,4 +24,3 @@ command:
     use_gitignore: true
   - type: Run
     command: "echo 'Build complete!'"
-    
