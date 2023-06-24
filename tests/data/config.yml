@@ -14,7 +14,7 @@ command:
     regex: "Hello"
     replacement: "Hello, 2"
   - type: Replace
-    source: "E:/projects/rust/autopackager/src/tests/data/test_src.txt"
+    source: "E:/projects/rust/autopackager/tests/data/test_src.txt"
     regex: "test"
     replacement: "test, path, "
   - type: Copy

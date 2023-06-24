@@ -292,8 +292,8 @@ mod tests {
     // 测试yaml文件解析
     fn parse_correct_commands_test() -> Result<()> {
         // 从tests/config.yml文件中解析出Config对象
-        let config = parse_commands_from_yaml("src/tests/ori_data/config.yml", true)?;
-        let expected_config = parse_commands_from_yaml("src/tests/data/config.yml", false)?;
+        let config = parse_commands_from_yaml("tests/ori_data/config.yml", true)?;
+        let expected_config = parse_commands_from_yaml("tests/data/config.yml", false)?;
         // 使用assert_eq!宏来断言两个Config对象是否相等
         assert_eq!(config, expected_config);
         // 如果没有错误，就返回Ok(())
