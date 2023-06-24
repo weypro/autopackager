@@ -3,21 +3,31 @@ use clap::Parser;
 use std::{env, path::Path};
 use tracing::{error, info, warn, trace};
 use tracing_subscriber;
-
+use libc::{setlocale, LC_ALL};
+use std::ffi::CString;
+use ansi_term;
 mod packager_command;
 
 #[derive(clap::Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// The path to the config file
+    // 配置文件路径
     #[arg(short, long)]
     config: String,
 }
 
 fn main() {
+    // 为win10启用ansi颜色支持
+    ansi_term::enable_ansi_support();
+
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::TRACE)
         .init();
+        
+    // let locale = CString::new("zh_CN.UTF-8").unwrap();
+    // unsafe {
+    //     setlocale(LC_ALL, locale.as_ptr());
+    // }
 
     let args = Args::parse();
     
