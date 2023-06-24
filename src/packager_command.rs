@@ -228,31 +228,54 @@ pub fn parse_commands_from_yaml(file_path: &str, if_use_define: bool) -> Result<
 
     if if_use_define {
         // 使用serde_yaml库的from_str函数将yaml字符串转换为Value类型
-        let value: serde_yaml::Value = serde_yaml::from_str(&yaml_content).unwrap();
-        // 从Value中获取define_items字段，它应该是一个数组
-        if let Some(define_items) = value["define_items"].as_sequence() {
-            // 遍历define_items数组中的每个元素，它们应该是一个映射
-            for item in define_items {
-                // 从映射中获取item字段，它应该是一个映射
-                // 从item映射中获取key和value字段，它们应该是字符串
-                if let (Some(key), Some(value)) = (
-                    item.get(&serde_yaml::Value::from("key")),
-                    item.get(&serde_yaml::Value::from("value")),
-                ) {
-                    if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
-                        // 使用format!函数将key和value拼接成"{key}"和value的形式
-                        let key = format!("{{{}}}", key);
-                        let value = value.to_string();
-                        // 使用regex::Regex::new函数创建一个正则表达式对象，用来匹配"{key}"
-                        let re = Regex::new(&regex::escape(&key)).unwrap();
-                        // 使用regex::Regex::replace_all函数将文件内容中的"{key}"替换为value
-                        yaml_content = re.replace_all(&yaml_content, &value).to_string();
-                    }
-                }
+        // let value: serde_yaml::Value = serde_yaml::from_str(&yaml_content).unwrap();
+        // // 从Value中获取define_items字段，它应该是一个数组
+        // if let Some(define_items) = value["define_items"].as_sequence() {
+        //     // 遍历define_items数组中的每个元素，它们应该是一个映射
+        //     for item in define_items {
+        //         // 从映射中获取item字段，它应该是一个映射
+        //         // 从item映射中获取key和value字段，它们应该是字符串
+        //         if let (Some(key), Some(value)) = (
+        //             item.get(&serde_yaml::Value::from("key")),
+        //             item.get(&serde_yaml::Value::from("value")),
+        //         ) {
+        //             if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
+        //                 // 使用format!函数将key和value拼接成"{key}"和value的形式
+        //                 let key = format!("{{{}}}", key);
+        //                 let value = value.to_string();
+        //                 // 使用regex::Regex::new函数创建一个正则表达式对象，用来匹配"{key}"
+        //                 let re = Regex::new(&regex::escape(&key)).unwrap();
+        //                 // 使用regex::Regex::replace_all函数将文件内容中的"{key}"替换为value
+        //                 yaml_content = re.replace_all(&yaml_content, &value).to_string();
+        //             }
+        //         }
+        //     }
+        // }
+
+        // 反序列化为Config结构体
+        let config: Config = deserialize_config(&yaml_content)?;
+
+        let mut old_config_str = yaml_content.clone();
+        let mut new_config_str = old_config_str.clone();
+
+        loop {
+            for item in &config.define_items {
+                // let re: Regex = Regex::new(&regex::escape(&format!("{{{}}}", item.key)))?;
+                let key = format!("{{{}}}", item.key);
+                let value = item.value.to_string();
+                // 使用regex::Regex::new函数创建一个正则表达式对象，用来匹配"{key}"
+                let re = Regex::new(&regex::escape(&key)).unwrap();
+                new_config_str = re.replace_all(&new_config_str, &value).to_string();
+            }
+
+            if !old_config_str.eq(&new_config_str) {
+                old_config_str = new_config_str.clone();
+            } else {
+                break;
             }
         }
+        yaml_content = new_config_str.clone();
     }
-
     deserialize_config(&yaml_content)
 }
 

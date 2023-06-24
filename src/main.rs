@@ -1,11 +1,11 @@
+use ansi_term;
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use std::{env, path::Path};
-use tracing::{error, info, warn, trace};
-use tracing_subscriber;
 use libc::{setlocale, LC_ALL};
 use std::ffi::CString;
-use ansi_term;
+use std::{env, path::Path};
+use tracing::{error, info, trace, warn};
+use tracing_subscriber;
 mod packager_command;
 
 #[derive(clap::Parser, Debug)]
@@ -14,6 +14,8 @@ struct Args {
     // 配置文件路径
     #[arg(short, long)]
     config: String,
+    #[arg(short, long)]
+    workdir: Option<String>,
 }
 
 fn main() {
@@ -26,14 +28,14 @@ fn main() {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::TRACE)
         .init();
-        
+
     // let locale = CString::new("zh_CN.UTF-8").unwrap();
     // unsafe {
     //     setlocale(LC_ALL, locale.as_ptr());
     // }
 
     let args = Args::parse();
-    
+
     info!("starting packager...");
     trace!("The config file path is: {}", args.config);
 
@@ -50,25 +52,35 @@ fn main() {
     };
 
     // 打印Config对象的内容，验证反序列化是否正确
-    //println!("{:#?}", config);
+    println!("{:#?}", config);
 
-    
-    // 根据配置文件路径来设置当前工作路径
-    if let Some(parent_dir) = Path::new(config_dir).parent() {
-        if parent_dir.is_dir() {
-            if let Err(e) = env::set_current_dir(parent_dir) {
+    match args.workdir {
+        None => {
+            // 如果没有传入工作路径参数，则根据配置文件路径来设置当前工作路径
+            if let Some(config_parent_dir) = Path::new(config_dir).parent() {
+                if config_parent_dir.is_dir() {
+                    if let Err(e) = env::set_current_dir(config_parent_dir) {
+                        error!("Failed to change current directory: {}", e);
+                    } else {
+                        info!(
+                            "Successfully changed current directory to {}",
+                            config_parent_dir.display()
+                        );
+                    }
+                } else {
+                    warn!("Already in the directory");
+                }
+            } else {
+                warn!("The path has no parent");
+            }
+        }
+        Some(path) => {
+            if let Err(e) = env::set_current_dir(&path) {
                 error!("Failed to change current directory: {}", e);
             } else {
-                info!(
-                    "Successfully changed current directory to {}",
-                    parent_dir.display()
-                );
+                info!("Successfully changed current directory to {}", path);
             }
-        } else {
-            warn!("Already in the directory");
         }
-    } else {
-        warn!("The path has no parent");
     }
 
     match packager_command::execute_commands(&config.command) {
@@ -76,7 +88,11 @@ fn main() {
             info!("All commands executed successfully!");
         }
         Err(e) => {
-            error!("{} error(s) occurred in {} command(s)!", e.len(),config.command.len());
+            error!(
+                "{} error(s) occurred in {} command(s)!",
+                e.len(),
+                config.command.len()
+            );
         }
     }
 }

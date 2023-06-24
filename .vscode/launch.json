@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["--config","./src/tests/ori_data/config.yml"],
+            "args": ["--config","./tests/ori_data/config.yml"],
             "env": { "RUST_BACKTRACE": "full" },
             "cwd": "${workspaceFolder}"
         },
@@ -59,6 +59,25 @@
                 }
             },
             "args": [],
+            "env": { "RUST_BACKTRACE": "full" },
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug in actual",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=autopackager",
+                    "--package=autopackager"
+                ],
+                "filter": {
+                    "name": "autopackager",
+                    "kind": "bin"
+                }
+            },
+            "args": ["--config","E:\\projects\\rust\\fakemphdccopytest\\config\\replace.yml","-w","E:\\projects\\rust\\fakemphdccopytest"],
             "env": { "RUST_BACKTRACE": "full" },
             "cwd": "${workspaceFolder}"
         },
