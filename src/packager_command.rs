@@ -258,14 +258,14 @@ pub fn parse_commands_from_yaml(file_path: &str, if_use_define: bool) -> Result<
         let mut old_config_str = yaml_content.clone();
         let mut new_config_str = old_config_str.clone();
 
+        // 循环替换，直到没有改变为止
         loop {
             for item in &config.define_items {
-                // let re: Regex = Regex::new(&regex::escape(&format!("{{{}}}", item.key)))?;
                 let key = format!("{{{}}}", item.key);
-                let value = item.value.to_string();
+                let value = &item.value;
                 // 使用regex::Regex::new函数创建一个正则表达式对象，用来匹配"{key}"
                 let re = Regex::new(&regex::escape(&key)).unwrap();
-                new_config_str = re.replace_all(&new_config_str, &value).to_string();
+                new_config_str = re.replace_all(&new_config_str, value).to_string();
             }
 
             if !old_config_str.eq(&new_config_str) {
@@ -274,7 +274,13 @@ pub fn parse_commands_from_yaml(file_path: &str, if_use_define: bool) -> Result<
                 break;
             }
         }
-        yaml_content = new_config_str.clone();
+
+        let re = regex::Regex::new(r"\{(\w+)\}").unwrap();
+        // 如果匹配到常量还存在，说明常量未完全定义
+        if re.is_match(&new_config_str) {
+            return Err(anyhow!("Invalid configuration"));
+        }
+        yaml_content = new_config_str;
     }
     deserialize_config(&yaml_content)
 }
