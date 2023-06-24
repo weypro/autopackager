@@ -219,8 +219,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [linux]
         # build: [linux, macos, win-msvc, win-gnu]
+        build: [linux, macos, macos-arm]
         include:
         - build: linux
           os: ubuntu-22.04
@@ -228,12 +228,12 @@ jobs:
         # - build: linux-arm
         #   os: ubuntu-22.04
         #   target: arm-unknown-linux-gnueabihf
-        # - build: macos
-        #   os: macos-latest
-        #   target: x86_64-apple-darwin
-        # - build: macos-arm
-        #   os: macos-latest
-        #   target: aarch64-apple-darwin
+        - build: macos
+          os: macos-latest
+          target: x86_64-apple-darwin
+        - build: macos-arm
+          os: macos-latest
+          target: aarch64-apple-darwin
         # - build: win-msvc
         #   os: windows-2022
         #   target: x86_64-pc-windows-msvc
@@ -271,12 +271,6 @@ jobs:
             tar czf "$staging.tar.gz" "$staging"
             echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
             fi
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: autopackager-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/autopackager*
-
       - name: Upload release assets
         uses: actions/upload-release-asset@v1
         env:
@@ -286,31 +280,3 @@ jobs:
           asset_path: ${{ env.ASSET }}
           asset_name: ${{ env.ASSET }}
           asset_content_type: application/octet-stream
-
-#   release:
-#     name: Create release
-#     needs: [create-release, build]
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Download artifacts
-#         uses: actions/download-artifact@v2
-#     #   - name: Create release
-#     #     id: create_release
-#     #     uses: actions/create-release@v1
-#     #     env:
-#     #       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#     #     with:
-#     #       tag_name: ${{ github.ref }}
-#     #       release_name: Release ${{ github.ref }}
-#     #       body: TODO # You can write some release notes here or use another action to generate them automatically.
-#     #       draft: false # Change this to true if you want to create a draft release.
-#     #       prerelease: false # Change this to true if you want to create a prerelease.
-#     #   - name: Upload release assets
-#     #     uses: actions/upload-release-asset@v1
-#     #     env:
-#     #       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#     #     with:
-#     #       upload_url: ${{ needs.create-release.outputs.upload_url }}
-#     #       asset_path: ${{ env.ASSET }}
-#     #       asset_name: ${{ env.ASSET }}
-#     #       asset_content_type: application/octet-stream
