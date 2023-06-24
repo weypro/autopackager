@@ -219,7 +219,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [linux, macos, win-msvc, win-gnu]
+        build: [linux]
+        # build: [linux, macos, win-msvc, win-gnu]
         include:
         - build: linux
           os: ubuntu-22.04
@@ -227,18 +228,18 @@ jobs:
         # - build: linux-arm
         #   os: ubuntu-22.04
         #   target: arm-unknown-linux-gnueabihf
-        - build: macos
-          os: macos-latest
-          target: x86_64-apple-darwin
+        # - build: macos
+        #   os: macos-latest
+        #   target: x86_64-apple-darwin
         # - build: macos-arm
         #   os: macos-latest
         #   target: aarch64-apple-darwin
-        - build: win-msvc
-          os: windows-2022
-          target: x86_64-pc-windows-msvc
-        - build: win-gnu
-          os: windows-2022
-          target: x86_64-pc-windows-gnu
+        # - build: win-msvc
+        #   os: windows-2022
+        #   target: x86_64-pc-windows-msvc
+        # - build: win-gnu
+        #   os: windows-2022
+        #   target: x86_64-pc-windows-gnu
 
     steps:
       - name: Checkout code
@@ -299,7 +300,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ needs.precreate-release.create-release.outputs.upload_url }}
+          upload_url: ${{ needs.precreate-release.outputs.upload_url }}
           asset_path: ${{ env.ASSET }}
           asset_name: ${{ env.ASSET }}
           asset_content_type: application/octet-stream
