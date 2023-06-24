@@ -1,8 +1,8 @@
 use ansi_term;
-use anyhow::{anyhow, Result};
+// use anyhow::{anyhow, Result};
 use clap::Parser;
-use libc::{setlocale, LC_ALL};
-use std::ffi::CString;
+// use libc::{setlocale, LC_ALL};
+// use std::ffi::CString;
 use std::{env, path::Path};
 use tracing::{error, info, trace, warn};
 use tracing_subscriber;
@@ -22,7 +22,9 @@ fn main() {
     // 为win10启用ansi颜色支持
     #[cfg(target_os = "windows")]
     {
-        ansi_term::enable_ansi_support();
+        ansi_term::enable_ansi_support().unwrap_or({
+            error!("color is not supported");
+        });
     }
 
     tracing_subscriber::fmt()
