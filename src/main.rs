@@ -18,7 +18,10 @@ struct Args {
 
 fn main() {
     // 为win10启用ansi颜色支持
-    ansi_term::enable_ansi_support();
+    if cfg!(target_os="windows"){
+        ansi_term::enable_ansi_support();
+    }
+    
 
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::TRACE)
