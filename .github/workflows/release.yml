@@ -257,8 +257,8 @@ jobs:
             staging="autopackager-${{ needs.create-release.outputs.my_version }}-${{ matrix.target }}"
             mkdir -p "$staging"/{complete,doc}
 
-            cp {README.md,COPYING,UNLICENSE,LICENSE-MIT} "$staging/"
-            cp {CHANGELOG.md,FAQ.md,GUIDE.md} "$staging/doc/"
+            # cp {README.md,COPYING,UNLICENSE,LICENSE-MIT} "$staging/"
+            # cp {CHANGELOG.md,FAQ.md,GUIDE.md} "$staging/doc/"
 
             if [ "${{ matrix.os }}" = "windows-2022" ]; then
             cp "target/${{ matrix.target }}/release/autopackager.exe" "$staging/"
