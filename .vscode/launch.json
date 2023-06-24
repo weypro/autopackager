@@ -41,6 +41,26 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
-        }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Release executable 'autopackager'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--release",
+                    "--bin=autopackager",
+                    "--package=autopackager"
+                ],
+                "filter": {
+                    "name": "autopackager",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "env": { "RUST_BACKTRACE": "full" },
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

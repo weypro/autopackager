@@ -187,8 +187,35 @@ on:
       - '*'
 
 jobs:
+  precreate-release:
+    name: Precreate-release
+    runs-on: ubuntu-22.04
+    outputs:
+      upload_url: ${{ steps.release.outputs.upload_url }}
+      my_version: ${{ env.MY_VERSION }}
+    steps:
+      - name: Get the release version from the tag
+        shell: bash
+        if: env.MY_VERSION == ''
+        run: |
+          # Apparently, this is the right way to get a tag name. Really?
+          #
+          # See: https://github.community/t5/GitHub-Actions/How-to-get-just-the-tag-name/m-p/32167/highlight/true#M1027
+          echo "MY_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          echo "version is: ${{ env.MY_VERSION }}"
+      - name: Create GitHub release
+        id: release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.MY_VERSION }}
+          release_name: ${{ env.MY_VERSION }}
+
+
   build:
     name: Build
+    needs: precreate-release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -224,6 +251,25 @@ jobs:
           override: true
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
+      - name: Build archive
+        shell: bash
+        run: |
+            staging="autopackager-${{ needs.create-release.outputs.my_version }}-${{ matrix.target }}"
+            mkdir -p "$staging"/{complete,doc}
+
+            cp {README.md,COPYING,UNLICENSE,LICENSE-MIT} "$staging/"
+            cp {CHANGELOG.md,FAQ.md,GUIDE.md} "$staging/doc/"
+
+            if [ "${{ matrix.os }}" = "windows-2022" ]; then
+            cp "target/${{ matrix.target }}/release/autopackager.exe" "$staging/"
+            7z a "$staging.zip" "$staging"
+            echo "ASSET=$staging.zip" >> $GITHUB_ENV
+            else
+            # The man page is only generated on Unix systems. ¯\_(ツ)_/¯
+            cp "target/${{ matrix.target }}/release/autopackager" "$staging/"
+            tar czf "$staging.tar.gz" "$staging"
+            echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
+            fi
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
@@ -232,28 +278,28 @@ jobs:
 
   release:
     name: Create release
-    needs: build
+    needs: [precreate-release, build]
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v2
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          body: TODO # You can write some release notes here or use another action to generate them automatically.
-          draft: false # Change this to true if you want to create a draft release.
-          prerelease: false # Change this to true if you want to create a prerelease.
+    #   - name: Create release
+    #     id: create_release
+    #     uses: actions/create-release@v1
+    #     env:
+    #       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #     with:
+    #       tag_name: ${{ github.ref }}
+    #       release_name: Release ${{ github.ref }}
+    #       body: TODO # You can write some release notes here or use another action to generate them automatically.
+    #       draft: false # Change this to true if you want to create a draft release.
+    #       prerelease: false # Change this to true if you want to create a prerelease.
       - name: Upload release assets
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: autopackager-${{ matrix.target }}.zip # You can zip the binaries for each platform or upload them as they are.
-          asset_name: autopackager-${{ matrix.target }}.zip # The name of the asset displayed in the release page.
-          asset_content_type: application/zip # The content type of the asset. Change this if you don't zip the binaries.
+          upload_url: ${{ needs.precreate-release.create-release.outputs.upload_url }}
+          asset_path: ${{ env.ASSET }}
+          asset_name: ${{ env.ASSET }}
+          asset_content_type: application/octet-stream
