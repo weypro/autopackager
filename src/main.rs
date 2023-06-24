@@ -19,14 +19,12 @@ fn main() {
         .with_max_level(tracing::Level::TRACE)
         .init();
 
-
-    info!("starting packager...");
-
     let args = Args::parse();
+    
+    info!("starting packager...");
     trace!("The config file path is: {}", args.config);
 
     let config_dir: &str = &args.config;
-
     let config = match packager_command::parse_commands_from_yaml(config_dir, true) {
         Ok(config) => {
             trace!("read file successfully");
