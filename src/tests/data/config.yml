@@ -5,12 +5,12 @@ define_items:
     value: "E:/projects/rust/autopackager/"
 command:
   - type: Copy
-    source: src/abc/*
-    destination: target/
-    gitignore_path: .gitignore
-    use_gitignore: true
+    source: "../../../src/"
+    destination: "../../../target/"
+    gitignore_path: ".gitignore"
+    use_gitignore: false
   - type: Replace
-    source: "test_src.txt"
+    source: "../data/test_src.txt"
     regex: "Hello"
     replacement: "Hello, 2"
   - type: Replace
@@ -18,8 +18,8 @@ command:
     regex: "test"
     replacement: "test, path, "
   - type: Copy
-    source: "src/efg/*"
-    destination: "target/efg"
+    source: "../../../src/efg/"
+    destination: "../../../target/efg"
     gitignore_path: ".gitignore"
     use_gitignore: true
   - type: Run

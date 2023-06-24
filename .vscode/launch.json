@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": ["--config","./src/tests/ori_data/config.yml"],
             "env": { "RUST_BACKTRACE": "full" },
             "cwd": "${workspaceFolder}"
         },

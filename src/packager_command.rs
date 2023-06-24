@@ -5,11 +5,11 @@ use std::fs;
 use std::path::Path;
 use std::process::Command as SysCommand;
 
+use ignore::WalkBuilder;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_yaml;
-use tracing::{error, info};
-use ignore::WalkBuilder;
+use tracing::{error, info, trace};
 
 // 定义一个结构体，表示整个yaml对象
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -61,29 +61,33 @@ pub struct Run {
 pub fn execute_copy(copy: &Copy) -> Result<()> {
     // 输出提示
     info!(
-        "* Copying files from {} to {}",
+        "*** Copying files from {} to {}",
         copy.source, copy.destination
     );
-    info!("- Using gitignore file at {}", copy.gitignore_path);
-    info!("- Using gitignore rules? {}", copy.use_gitignore);
+    trace!("- Using gitignore file at {}", copy.gitignore_path);
+    trace!("- Using gitignore rules? {}", copy.use_gitignore);
 
+    if !Path::new(&copy.source).exists() {
+        return Err(anyhow!("No such source directory"));
+    }
 
     // 创建一个WalkBuilder迭代器，遍历源路径下的所有文件和目录
     let walker = if copy.use_gitignore {
         // 如果copy.use_gitignore为true，则添加ignore文件
         WalkBuilder::new(&copy.source)
-        .add_custom_ignore_filename(&copy.gitignore_path).clone()
+            .add_custom_ignore_filename(&copy.gitignore_path)
+            .clone()
     } else {
         // 否则，不添加ignore文件
         WalkBuilder::new(&copy.source)
-        .git_ignore(copy.use_gitignore.clone())
-        .ignore(copy.use_gitignore.clone())
-        .git_global(copy.use_gitignore.clone()).clone()
+            .git_ignore(copy.use_gitignore.clone())
+            .ignore(copy.use_gitignore.clone())
+            .git_global(copy.use_gitignore.clone())
+            .clone()
     };
 
     // 创建一个WalkBuilder迭代器，遍历源路径下的所有文件和目录，并添加ignore文件
-    for result in walker.build()
-    {
+    for result in walker.build() {
         // 处理每个结果，如果是Ok(entry)，则获取entry的路径
         if let Ok(entry) = result {
             let entry_path = entry.path();
@@ -114,7 +118,7 @@ pub fn execute_copy(copy: &Copy) -> Result<()> {
 pub fn execute_replace(replace: &Replace) -> Result<()> {
     // 输出提示
     info!(
-        "* Replacing \"{}\" with \"{}\" in {}",
+        "*** Replacing \"{}\" with \"{}\" in {}",
         replace.regex, replace.replacement, replace.source
     );
 
@@ -161,7 +165,7 @@ pub fn execute_replace(replace: &Replace) -> Result<()> {
 // 定义一个函数来执行run命令
 pub fn execute_run(run: &Run) -> Result<()> {
     // 输出提示
-    info!("* Running command: {}", run.command);
+    info!("*** Running command: {}", run.command);
 
     // 根据操作系统选择不同的命令
     let output = if cfg!(target_os = "windows") {
@@ -264,9 +268,9 @@ mod tests {
     #[test]
     // 测试yaml文件解析
     fn parse_correct_commands_test() -> Result<()> {
-        // 从tests/config.yaml文件中解析出Config对象
-        let config = parse_commands_from_yaml("src/tests/ori_data/config.yaml", true)?;
-        let expected_config = parse_commands_from_yaml("src/tests/data/config.yaml", false)?;
+        // 从tests/config.yml文件中解析出Config对象
+        let config = parse_commands_from_yaml("src/tests/ori_data/config.yml", true)?;
+        let expected_config = parse_commands_from_yaml("src/tests/data/config.yml", false)?;
         // 使用assert_eq!宏来断言两个Config对象是否相等
         assert_eq!(config, expected_config);
         // 如果没有错误，就返回Ok(())
