@@ -167,19 +167,20 @@ pub fn execute_run(run: &Run) -> Result<()> {
     // 输出提示
     info!("*** Running command: {}", run.command);
 
-    // 根据操作系统选择不同的命令
-    let output = if cfg!(target_os = "windows") {
-        SysCommand::new("cmd")
-            .args(["/C", &run.command])
-            .output()
-            .expect("failed to execute process")
-    } else {
-        SysCommand::new("sh")
-            .arg("-c")
-            .arg(&run.command)
-            .output()
-            .expect("failed to execute process")
-    };
+    let command = &run.command;
+    let words = shell_words::split(command).unwrap(); // 用shell-words库来分割字符串
+    let output = SysCommand::new(&words[0]) // words[0]是命令
+        .args(&words[1..]) // words[1..]是参数组
+        .output() // 执行命令并获取输出
+        .or_else(|_| {
+            // 如果失败了，就用cmd /c来执行
+            if cfg!(target_os = "windows") {
+                SysCommand::new("cmd").arg("/C").args(words).output()
+            } else {
+                SysCommand::new("sh").arg("-c").args(words).output()
+            }
+        })
+        .expect("failed to execute command");
 
     // 检查命令是否成功
     if output.status.success() {
@@ -188,6 +189,7 @@ pub fn execute_run(run: &Run) -> Result<()> {
         //println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
         Ok(())
     } else {
+        error!("stderr: {}", String::from_utf8_lossy(&output.stderr));
         // 返回错误值
         Err(anyhow!("command failed with status: {}", output.status))
     }
