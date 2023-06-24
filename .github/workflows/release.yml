@@ -149,7 +149,7 @@ jobs:
       shell: bash
       run: |
         outdir="$(ci/cargo-out-dir "${{ env.TARGET_DIR }}")"
-        staging="ripgrep-${{ needs.create-release.outputs.rg_version }}-${{ matrix.target }}"
+        staging="autopackager-${{ needs.create-release.outputs.rg_version }}-${{ matrix.target }}"
         mkdir -p "$staging"/{complete,doc}
 
         cp {README.md,COPYING,UNLICENSE,LICENSE-MIT} "$staging/"
