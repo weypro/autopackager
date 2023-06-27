@@ -245,10 +245,10 @@ pub fn parse_commands_from_yaml(file_path: &str, if_use_define: bool) -> Result<
         }
 
         // 对指定文本进行变量替换
-        let mut subst_text = yaml_content.clone();
-        for item in &config.define_items {
-            subst_text = substitute_variables(&subst_text, &valuemap);
-        }
+        // let mut subst_text = yaml_content.clone();
+        // for item in &config.define_items {
+        //     subst_text = substitute_variables(&subst_text, &valuemap);
+        // }
 
         let subst_text = substitute_variables(&yaml_content, &valuemap);
         println!("{}", subst_text);
