@@ -121,7 +121,7 @@ pub fn execute_replace(replace: &Replace) -> Result<()> {
         "*** Replacing \"{}\" with \"{}\" in {}",
         replace.regex, replace.replacement, replace.source
     );
-
+    //let newReg=replace.regex.replace("\\", "\\\\");
     // 创建一个正则表达式对象
     let regex = Regex::new(&replace.regex)?;
 
@@ -229,62 +229,95 @@ pub fn parse_commands_from_yaml(file_path: &str, if_use_define: bool) -> Result<
     let mut yaml_content = fs::read_to_string(file_path)?;
 
     if if_use_define {
-        // 使用serde_yaml库的from_str函数将yaml字符串转换为Value类型
-        // let value: serde_yaml::Value = serde_yaml::from_str(&yaml_content).unwrap();
-        // // 从Value中获取define_items字段，它应该是一个数组
-        // if let Some(define_items) = value["define_items"].as_sequence() {
-        //     // 遍历define_items数组中的每个元素，它们应该是一个映射
-        //     for item in define_items {
-        //         // 从映射中获取item字段，它应该是一个映射
-        //         // 从item映射中获取key和value字段，它们应该是字符串
-        //         if let (Some(key), Some(value)) = (
-        //             item.get(&serde_yaml::Value::from("key")),
-        //             item.get(&serde_yaml::Value::from("value")),
-        //         ) {
-        //             if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
-        //                 // 使用format!函数将key和value拼接成"{key}"和value的形式
-        //                 let key = format!("{{{}}}", key);
-        //                 let value = value.to_string();
-        //                 // 使用regex::Regex::new函数创建一个正则表达式对象，用来匹配"{key}"
-        //                 let re = Regex::new(&regex::escape(&key)).unwrap();
-        //                 // 使用regex::Regex::replace_all函数将文件内容中的"{key}"替换为value
-        //                 yaml_content = re.replace_all(&yaml_content, &value).to_string();
-        //             }
-        //         }
-        //     }
-        // }
-
         // 反序列化为Config结构体
         let config: Config = deserialize_config(&yaml_content)?;
 
-        let mut old_config_str = yaml_content.clone();
-        let mut new_config_str = old_config_str.clone();
+        // 建立变量名到值的映射关系
+        let mut valuemap = std::collections::HashMap::new();
+        for item in &config.define_items {
+            valuemap.insert(item.key.clone(), item.value.clone());
+        }
+
+        // 对valuemap每一项进行遍历，进行变量替换
+        for item in &config.define_items {
+            let subst_value = substitute_variables(&item.value, &valuemap);
+            valuemap.insert(item.key.clone(), subst_value);
+        }
+
+        // 对指定文本进行变量替换
+        let mut subst_text = yaml_content.clone();
+        for item in &config.define_items {
+            subst_text = substitute_variables(&subst_text, &valuemap);
+        }
+
+        let subst_text = substitute_variables(&yaml_content, &valuemap);
+        println!("{}", subst_text);
+        yaml_content = subst_text;
+
+        // let mut old_config_str = yaml_content.clone();
+        // let mut new_config_str = old_config_str.clone();
 
         // 循环替换，直到没有改变为止
-        loop {
-            for item in &config.define_items {
-                let key = format!("{{{}}}", item.key);
-                let value = &item.value;
-                // 使用regex::Regex::new函数创建一个正则表达式对象，用来匹配"{key}"
-                let re = Regex::new(&regex::escape(&key)).unwrap();
-                new_config_str = re.replace_all(&new_config_str, value).to_string();
-            }
+        // loop {
+        //     for item in &config.define_items {
+        //         let key = format!("${{{}}}", item.key);
+        //         let value = &item.value;
+        //         // 使用regex::Regex::new函数创建一个正则表达式对象，用来匹配"{key}"
+        //         let re = Regex::new(&regex::escape(&key)).unwrap();
+        //         new_config_str = re.replace_all(&new_config_str, value).to_string();
+        //     }
 
-            if !old_config_str.eq(&new_config_str) {
-                old_config_str = new_config_str.clone();
-            } else {
-                break;
-            }
-        }
+        //     if !old_config_str.eq(&new_config_str) {
+        //         old_config_str = new_config_str.clone();
+        //     } else {
+        //         break;
+        //     }
+        // }
 
-        let re = regex::Regex::new(r"\{(\w+)\}").unwrap();
-        // 如果匹配到常量还存在，说明常量未完全定义
-        if re.is_match(&new_config_str) {
-            return Err(anyhow!("Invalid configuration"));
-        }
-        yaml_content = new_config_str;
+        // for item in &config.define_items {
+        //     let key = format!("${{{}}}", item.key);
+        //     let value = &item.value;
+        //     // 使用regex::Regex::new函数创建一个正则表达式对象，用来匹配"{key}"
+        //     let re = Regex::new(&regex::escape(&key)).unwrap();
+        //     new_config_str = re.replace_all(&new_config_str, value).to_string();
+        // }
+
+        // let re = regex::Regex::new(r"$\{(\w+)\}").unwrap();
+        // // 如果匹配到常量还存在，说明常量未完全定义
+        // if re.is_match(&new_config_str) {
+        //     return Err(anyhow!("Invalid configuration"));
+        // }
+        // yaml_content = new_config_str;
     }
+    println!("{}", yaml_content);
     deserialize_config(&yaml_content)
+}
+
+// 替换字符串中的变量
+// value 是待替换的字符串。
+// valuemap 是一个 HashMap，用于将变量名映射到变量的值。
+// 使用正则来查找 ${} 形式的变量名，并将变量名替换为变量的值。
+// 在替换变量名时，函数会递归地调用自己来解析变量的值。这是因为变量的值可能包含其他变量名，例如 ${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}.${VER_BUILD}。
+// 在这种情况下，函数会首先替换 ${VER_MAJOR}，然后替换 ${VER_MINOR}，以此类推，直到所有变量都被替换为其对应的值。
+// 请注意，函数会尝试替换所有变量，直到没有新的替换可以进行为止。如果某个变量的值中包含无法解析的变量名，函数将停止替换并返回原始字符串。这种情况可以在循环中检查，如果找不到相应的变量，则可以中断循环。
+// 最后，该函数返回替换后的字符串。
+fn substitute_variables(
+    value: &str,
+    valuemap: &std::collections::HashMap<String, String>,
+) -> String {
+    let re = Regex::new(r"\$\{(\w+)\}").unwrap();
+    let mut result = String::from(value);
+    while let Some(caps) = re.captures(&result) {
+        let var_name = caps.get(1).unwrap().as_str();
+        if let Some(subst_value) = valuemap.get(var_name) {
+            let subst_result = substitute_variables(subst_value, valuemap);
+            let range = caps.get(0).unwrap().range();
+            result.replace_range(range.start..range.end, &subst_result);
+        } else {
+            break;
+        }
+    }
+    result
 }
 
 // 定义一个函数，用于从yaml字符串反序列化为Config对象

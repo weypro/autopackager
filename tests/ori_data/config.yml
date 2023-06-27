@@ -12,9 +12,9 @@ command:
   - type: Replace
     source: "../data/test_src.txt"
     regex: "Hello"
-    replacement: "Hello, {product_version_define}"
+    replacement: "Hello, ${product_version_define}"
   - type: Replace
-    source: "{file_to_replace_root_path}tests/data/test_src.txt"
+    source: "${file_to_replace_root_path}tests/data/test_src.txt"
     regex: "test"
     replacement: "test, path, "
   - type: Copy
