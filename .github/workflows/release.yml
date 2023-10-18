@@ -52,11 +52,14 @@ jobs:
         # - build: macos-arm
         #   os: macos-latest
         #   target: aarch64-apple-darwin
-        - build: win-msvc
-          os: windows-2022
-          target: x86_64-pc-windows-msvc
+        # - build: win-msvc
+        #   os: windows-2022
+        #   target: x86_64-pc-windows-msvc
+        # - build: win-gnu
+        #   os: windows-2022
+        #   target: x86_64-pc-windows-gnu
         - build: win-gnu
-          os: windows-2022
+          os: ubuntu-22.04
           target: x86_64-pc-windows-gnu
 
     steps:
